@@ -1,3 +1,8 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor
@@ -5,6 +10,58 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.svm import SVR
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+import tarfile
+import urllib.request
+
+# X_train, y_train 
+DOWNLOAD_ROOT = "https://raw.githubusercontent.com/ageron/handson-ml2/master/"
+HOUSING_PATH = os.path.join("datasets", "housing")
+HOUSING_URL = DOWNLOAD_ROOT + "datasets/housing/housing.tgz"
+
+def fetch_housing_data(housing_url=HOUSING_URL, housing_path=HOUSING_PATH):
+    if not os.path.isdir(housing_path):
+        os.makedirs(housing_path)
+    tgz_path = os.path.join(housing_path, "housing.tgz")
+    urllib.request.urlretrieve(housing_url, tgz_path)
+    housing_tgz = tarfile.open(tgz_path)
+    housing_tgz.extractall(path=housing_path)
+    housing_tgz.close()
+
+fetch_housing_data()
+
+def load_housing_data(housing_path=HOUSING_PATH):
+    csv_path = os.path.join(housing_path, "housing.csv")
+    return pd.read_csv(csv_path)
+
+# Load your data
+housing = load_housing_data()
+housing.dropna(subset=["total_bedrooms"])
+housing_labels = housing['median_house_value']
+housing_features = housing.drop('median_house_value', axis=1)
+
+from sklearn.impute import SimpleImputer
+
+# Identify numeric and categorical columns
+num_attribs = housing_features.select_dtypes(include=['int64', 'float64']).columns
+cat_attribs = housing_features.select_dtypes(include=['object']).columns
+
+# Numeric pipeline with imputer
+num_pipeline = Pipeline([
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler', StandardScaler())
+])
+
+# Full pipeline for preprocessing
+full_pipeline = ColumnTransformer([
+    ("num", num_pipeline, num_attribs),
+    ("cat", OneHotEncoder(), cat_attribs)
+])
+
+housing_prepared = full_pipeline.fit_transform(housing_features)
+
+# Train/test split
+X_train, X_test, y_train, y_test = train_test_split(housing_prepared, housing_labels, test_size=0.2, random_state=42)
 
 # Assume X_train, y_train are already prepared
 
